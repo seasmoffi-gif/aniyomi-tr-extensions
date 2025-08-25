@@ -1,149 +1,106 @@
 package com.yusiqo.animecix
 
-import eu.kanade.tachiyomi.animeextension.tr.tranimeci.TRAnimeCIFilters.CountryFilter
-import eu.kanade.tachiyomi.animeextension.tr.tranimeci.TRAnimeCIFilters.GenresFilter
-import eu.kanade.tachiyomi.animeextension.tr.tranimeci.TRAnimeCIFilters.SeasonFilter
-import eu.kanade.tachiyomi.animeextension.tr.tranimeci.TRAnimeCIFilters.StudioFilter
-import eu.kanade.tachiyomi.animeextension.tr.tranimeci.TRAnimeCIFilters.TypeFilter
-import eu.kanade.tachiyomi.animesource.model.AnimeFilter
-import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
-import eu.kanade.tachiyomi.animesource.model.SAnime
-import eu.kanade.tachiyomi.animesource.model.SEpisode
-import eu.kanade.tachiyomi.animesource.model.Video
-import eu.kanade.tachiyomi.multisrc.animestream.AnimeStream
-import eu.kanade.tachiyomi.multisrc.animestream.AnimeStreamFilters
+import eu.kanade.tachiyomi.animesource.model.*
+import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.util.asJsoup
-import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrl
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import okhttp3.Request
 import okhttp3.Response
 import org.jsoup.nodes.Element
-import java.text.SimpleDateFormat
-import java.util.Locale
 
-class TRAnimeCI : AnimeStream(
-    "tr",
-    "TRAnimeCI",
-    "https://tranimaci.com",
-) {
-    override val client by lazy {
-        network.client.newBuilder()
-            .addInterceptor(ShittyProtectionInterceptor(network.client))
-            .build()
-    }
+class Animecix : AnimeHttpSource() {
 
-    override fun headersBuilder() = super.headersBuilder().add("Referer", "$baseUrl/")
+    override val name = "Animecix"
+    override val baseUrl = "https://animecix.tv"
+    override val lang = "tr"
+    override val supportsLatest = true
 
-    override val animeListUrl = "$baseUrl/search"
+    // --- POPULAR / LATEST ---
+    override fun popularAnimeRequest(page: Int): Request =
+        GET("$baseUrl/secure/last-episodes?page=$page", headers)
 
-    override val dateFormatter by lazy {
-        SimpleDateFormat("dd MMMM yyyy", Locale("tr"))
-    }
+    override fun popularAnimeParse(response: Response): AnimesPage {
+        val body = response.body?.string() ?: return AnimesPage(emptyList(), false)
+        val apiResponse = jsonParser.decodeFromString<ApiResponse>(body)
 
-    // ============================== Popular ===============================
-    override fun popularAnimeRequest(page: Int) = GET(baseUrl)
-
-    override fun popularAnimeSelector() = "div.releases:contains(Populer) + div.listupd a.tip"
-
-    override fun popularAnimeNextPageSelector() = null
-
-    // =============================== Latest ===============================
-    override fun latestUpdatesRequest(page: Int) = GET("$baseUrl/index?page=$page")
-
-    override fun latestUpdatesSelector() = "div.releases:contains(Son Güncellenenler) ~ div.listupd a.tip"
-
-    override fun latestUpdatesFromElement(element: Element) =
-        searchAnimeFromElement(element).apply {
-            // Convert episode url to anime url
-            url = "/series$url".replace("/video", "").substringBefore("-bolum").substringBeforeLast("-")
+        val episodes = apiResponse.data.map { ep ->
+            SAnime.create().apply {
+                title = "${ep.title_name}"
+                thumbnail_url = ep.title_poster
+                setUrlWithoutDomain("$baseUrl/secure/titles/${ep.title_id}?titleId=${ep.title_id}")
+            }
         }
 
-    override fun latestUpdatesNextPageSelector() = "div.hpage > a:last-child[href]"
-
-    // =============================== Search ===============================
-    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request {
-        val params = TRAnimeCIFilters.getSearchParameters(filters)
-        val url = "$animeListUrl?${params.genres}".toHttpUrl().newBuilder()
-            .addIfNotBlank("country[]", params.country)
-            .addIfNotBlank("season[]", params.season)
-            .addIfNotBlank("format[]", params.type)
-            .addIfNotBlank("studio[]", params.studio)
-            .addIfNotBlank("name", query)
-            .build()
-
-        return GET(url.toString(), headers)
+        val hasNext = apiResponse.current_page < apiResponse.last_page
+        return AnimesPage(episodes, hasNext)
     }
 
-    override fun searchAnimeSelector() = "div.advancedsearch a.tip"
+    override fun latestUpdatesRequest(page: Int): Request =
+        GET("$baseUrl/latest?page=$page", headers)
 
-    override fun searchAnimeNextPageSelector() = null
+    override fun latestUpdatesParse(response: Response) = popularAnimeParse(response)
 
-    // ============================== Filters ===============================
-    override val filtersSelector = "div.filter.dropdown > ul"
+    // --- SEARCH ---
+    override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request =
+        GET("$baseUrl/search?q=$query&page=$page", headers)
 
-    override fun getFilterList(): AnimeFilterList {
-        return if (AnimeStreamFilters.filterInitialized()) {
-            AnimeFilterList(
-                GenresFilter("Tür"),
-                AnimeFilter.Separator(),
-                CountryFilter("Ülke"),
-                SeasonFilter("Mevsim"),
-                TypeFilter("Tip"),
-                StudioFilter("Studio"),
-            )
-        } else {
-            AnimeFilterList(AnimeFilter.Header(filtersMissingWarning))
+    override fun searchAnimeParse(response: Response): AnimesPage = popularAnimeParse(response)
+
+    // --- ANIME DETAILS ---
+    override fun animeDetailsParse(response: Response): SAnime {
+        val doc = response.asJsoup()
+        return SAnime.create().apply {
+            title = doc.selectFirst("h1.title")?.text() ?: ""
+            description = doc.selectFirst(".description")?.text()
+            genre = doc.select(".genres a").joinToString { it.text() }
+            thumbnail_url = doc.selectFirst(".thumbnail img")?.attr("abs:src")
+            status = SAnime.UNKNOWN
         }
     }
 
-    // =========================== Anime Details ============================
-    override val animeDetailsSelector = "div.infox"
-    override val animeStatusText = "Durum"
-    override val animeTitleSelector = ".entry-title"
-
-    override fun parseStatus(statusString: String?): Int {
-        return when (statusString?.trim()?.lowercase()) {
-            "tamamlandı" -> SAnime.COMPLETED
-            "devam ediyor" -> SAnime.ONGOING
-            else -> SAnime.UNKNOWN
-        }
+    // --- EPISODES ---
+    override fun episodeListParse(response: Response): List<SEpisode> {
+        val doc = response.asJsoup()
+        return doc.select(".episode-list li").mapIndexed { idx, element ->
+            SEpisode.create().apply {
+                episode_number = idx + 1F
+                name = element.selectFirst("a")?.text() ?: "Episode ${idx + 1}"
+                setUrlWithoutDomain(element.selectFirst("a")?.attr("href") ?: "")
+            }
+        }.reversed()
     }
 
-    // ============================== Episodes ==============================
-    override fun episodeListParse(response: Response) = super.episodeListParse(response).reversed()
-
-    override fun episodeFromElement(element: Element) = SEpisode.create().apply {
-        setUrlWithoutDomain(element.attr("abs:href"))
-        val epNum = element.selectFirst(".epl-title")!!.text()
-            .substringBefore(".")
-            .substringBefore(" ")
-            .toIntOrNull() ?: 1 // Int because of the episode name, a Float would render with more zeros.
-
-        name = "Bölüm $epNum"
-        episode_number = epNum.toFloat()
-
-        date_upload = element.selectFirst(".epl-date")?.text().toDate()
-    }
-
-    // ============================ Video Links =============================
+    // --- VIDEOS ---
     override fun videoListParse(response: Response): List<Video> {
         val doc = response.asJsoup()
-        val script = doc.selectFirst("script:containsData(let video_source)")!!.data()
-        return script.substringAfter("[").substringBefore("]")
-            .split("{")
-            .drop(1)
-            .map {
-                val quality = it.substringAfter("name\":\"").substringBefore('"')
-                val url = it.substringAfter("url\":\"").substringBefore('"')
-                Video(url, quality, url, headers)
-            }
-    }
-
-    // ============================= Utilities ==============================
-    private fun HttpUrl.Builder.addIfNotBlank(query: String, value: String) = apply {
-        if (value.isNotBlank()) {
-            addQueryParameter(query, value)
+        return doc.select("iframe").mapNotNull { element ->
+            val videoUrl = element.attr("abs:src")
+            if (videoUrl.isNotBlank()) Video(videoUrl, "Default", videoUrl) else null
         }
     }
 }
+
+
+// --- JSON DATA CLASSES ---
+@Serializable
+data class ApiResponse(
+    val current_page: Int,
+    val last_page: Int,
+    val data: List<EpisodeData>
+)
+
+@Serializable
+data class EpisodeData(
+    val title_name: String,
+    val title_id: Int,
+    val title_poster: String
+)
+
+@Serializable
+data class VideoData(
+    val url: String,
+    val quality: String
+)
