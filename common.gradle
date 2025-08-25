@@ -58,19 +58,21 @@ android {
         }
     }
 
-    signingConfigs {
-    release {
-        storeFile rootProject.file(project.findProperty("signing.storeFile") ?: "signingkey.jks")
-        storePassword project.findProperty("signing.storePassword") ?: ""
-        keyAlias project.findProperty("signing.keyAlias") ?: ""
-        keyPassword project.findProperty("signing.keyPassword") ?: ""
-    }
-    }
-
+    // 🔥 JKS kaldırıldı, sadece unsigned release build
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            // imzasız build (cihazda kurmak için apksigner ile sonradan imzalaman gerekir)
             minifyEnabled false
+            signingConfig null
+        }
+        debug {
+            // debug key ile otomatik imzalanır (cihazda direkt kurabilirsin)
+            minifyEnabled false
+        }
+        all {
+            buildConfigField "String", "MEGACLOUD_API", "\"${System.getenv("MEGACLOUD_API") ?: localProperties.getProperty("MEGACLOUD_API", "")}\""
+            buildConfigField "String", "KISSKH_API", "\"${System.getenv("KISSKH_API") ?: localProperties.getProperty("KISSKH_API", "")}\""
+            buildConfigField "String", "KISSKH_SUB_API", "\"${System.getenv("KISSKH_SUB_API") ?: localProperties.getProperty("KISSKH_SUB_API", "")}\""
         }
     }
 
@@ -79,20 +81,11 @@ android {
     }
 
     buildFeatures {
-        // Disable unused AGP features
         aidl false
         renderScript false
         resValues false
         shaders false
         buildConfig true
-    }
-
-    buildTypes {
-        all {
-            buildConfigField "String", "MEGACLOUD_API", "\"${System.getenv("MEGACLOUD_API") ?: localProperties.getProperty("MEGACLOUD_API", "")}\""
-            buildConfigField "String", "KISSKH_API", "\"${System.getenv("KISSKH_API") ?: localProperties.getProperty("KISSKH_API", "")}\""
-            buildConfigField "String", "KISSKH_SUB_API", "\"${System.getenv("KISSKH_SUB_API") ?: localProperties.getProperty("KISSKH_SUB_API", "")}\""
-        }
     }
 
     packaging {
@@ -111,7 +104,7 @@ android {
 }
 
 dependencies {
-    if (theme != null) implementation(theme) // Overrides core launcher icons
+    if (theme != null) implementation(theme)
     implementation(project(":core"))
     compileOnly(libs.bundles.common)
 }
