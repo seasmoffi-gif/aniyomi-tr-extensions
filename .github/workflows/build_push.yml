@@ -120,9 +120,12 @@ jobs:
           STOREPASS="ci-storepass"
           KEYPASS="ci-keypass"
 
+          rm -f $KEYSTORE
+
           keytool -genkeypair \
             -v \
             -keystore $KEYSTORE \
+            -storetype PKCS12 \
             -alias $ALIAS \
             -keyalg RSA \
             -keysize 2048 \
@@ -131,20 +134,16 @@ jobs:
             -keypass $KEYPASS \
             -dname "CN=CI, OU=CI, O=CI, L=CI, S=CI, C=CI"
 
-          echo "ALIAS=$ALIAS" >> $GITHUB_ENV
-          echo "KEY_STORE_PASSWORD=$STOREPASS" >> $GITHUB_ENV
-          echo "KEY_PASSWORD=$KEYPASS" >> $GITHUB_ENV
-
       - name: Build extensions (${{ matrix.chunk.number }})
-        env:
-          ALIAS: "ci-key" 
-          KEY_STORE_PASSWORD: "ci-storepass" 
-          KEY_PASSWORD: "ci-keypass"
-          MEGACLOUD_API: ${{ secrets.MEGACLOUD_API }}
-          KISSKH_API: ${{ secrets.KISSKH_API }}
-          KISSKH_SUB_API: ${{ secrets.KISSKH_SUB_API }}
         run: |
-          ./gradlew $(echo '${{ toJson(matrix.chunk.modules) }}' | jq -r 'join(" ")')
+          ./gradlew $(echo '${{ toJson(matrix.chunk.modules) }}' | jq -r 'join(" ")') \
+            -Psigning.storeFile=signingkey.jks \
+            -Psigning.storePassword=ci-storepass \
+            -Psigning.keyAlias=ci-key \
+            -Psigning.keyPassword=ci-keypass \
+            -PmegacloudApi=${{ secrets.MEGACLOUD_API }} \
+            -PkisskhApi=${{ secrets.KISSKH_API }} \
+            -PkisskhSubApi=${{ secrets.KISSKH_SUB_API }}
 
       - name: Upload APKs (${{ matrix.chunk.number }})
         uses: actions/upload-artifact@v4.6.2
@@ -209,8 +208,6 @@ jobs:
           cwd: "./repo"
 
       - name: Sync repo
-        env:
-          COMMIT_MESSAGE: ${{ needs.prepare.outputs.latestCommitMessage }}
         run: |
           cd repo
           git config user.name "Yūzōnō"
@@ -219,7 +216,7 @@ jobs:
           git fetch origin
           git reset origin/repo
           git add -A
-          git commit --amend -m "$COMMIT_MESSAGE" --no-sign --allow-empty || echo "No changes to commit"
+          git commit --amend -m "${{ needs.prepare.outputs.latestCommitMessage }}" --no-sign --allow-empty || echo "No changes to commit"
           git push origin HEAD:repo --force
 
       - name: Purge cached index on jsDelivr
