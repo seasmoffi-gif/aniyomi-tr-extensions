@@ -47,6 +47,7 @@ class Animecix : AnimeHttpSource() {
 
     override fun latestUpdatesParse(response: Response) = popularAnimeParse(response)
 
+    
     // --- SEARCH ---
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request =
         GET("$baseUrl/search?q=$query&page=$page", headers)
