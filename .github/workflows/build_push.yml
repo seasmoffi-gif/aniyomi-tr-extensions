@@ -113,34 +113,9 @@ jobs:
         with:
           cache-read-only: ${{ matrix.chunk.number > 1 }}
 
-      - name: Generate temporary signing key
-        run: |
-          KEYSTORE="signingkey.jks"
-          ALIAS="ci-key"
-          STOREPASS="ci-storepass"
-          KEYPASS="ci-keypass"
-
-          rm -f $KEYSTORE
-
-          keytool -genkeypair \
-            -v \
-            -keystore $KEYSTORE \
-            -storetype PKCS12 \
-            -alias $ALIAS \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass $STOREPASS \
-            -keypass $KEYPASS \
-            -dname "CN=CI, OU=CI, O=CI, L=CI, S=CI, C=CI"
-
       - name: Build extensions (${{ matrix.chunk.number }})
         run: |
           ./gradlew $(echo '${{ toJson(matrix.chunk.modules) }}' | jq -r 'join(" ")') \
-            -Psigning.storeFile=signingkey.jks \
-            -Psigning.storePassword=ci-storepass \
-            -Psigning.keyAlias=ci-key \
-            -Psigning.keyPassword=ci-keypass \
             -PmegacloudApi=${{ secrets.MEGACLOUD_API }} \
             -PkisskhApi=${{ secrets.KISSKH_API }} \
             -PkisskhSubApi=${{ secrets.KISSKH_SUB_API }}
@@ -152,9 +127,6 @@ jobs:
           name: "individual-apks-${{ matrix.chunk.number }}"
           path: "**/*.apk"
           retention-days: 1
-
-      - name: Clean up CI files
-        run: rm signingkey.jks
 
   publish:
     name: Publish extension repo
