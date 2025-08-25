@@ -20,7 +20,6 @@ class Animecix : AnimeHttpSource() {
     override val baseUrl = "https://animecix.tv"
     override val lang = "tr"
     override val supportsLatest = true
-
     private val jsonParser = Json { ignoreUnknownKeys = true }
 
     // --- POPULAR / LATEST ---
