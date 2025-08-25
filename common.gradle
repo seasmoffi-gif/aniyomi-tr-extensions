@@ -59,12 +59,12 @@ android {
     }
 
     signingConfigs {
-        release {
-            storeFile rootProject.file("signingkey.jks")
-            storePassword System.getenv("KEY_STORE_PASSWORD")
-            keyAlias System.getenv("ALIAS")
-            keyPassword System.getenv("KEY_PASSWORD")
-        }
+    release {
+        storeFile rootProject.file(project.findProperty("signing.storeFile") ?: "signingkey.jks")
+        storePassword project.findProperty("signing.storePassword") ?: ""
+        keyAlias project.findProperty("signing.keyAlias") ?: ""
+        keyPassword project.findProperty("signing.keyPassword") ?: ""
+    }
     }
 
     buildTypes {
