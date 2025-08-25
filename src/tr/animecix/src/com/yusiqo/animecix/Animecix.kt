@@ -1,15 +1,18 @@
 package com.yusiqo.animecix
 
-import eu.kanade.tachiyomi.animesource.model.*
+import eu.kanade.tachiyomi.animesource.model.AnimeFilterList
+import eu.kanade.tachiyomi.animesource.model.AnimesPage
+import eu.kanade.tachiyomi.animesource.model.SAnime
+import eu.kanade.tachiyomi.animesource.model.SEpisode
+import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.util.asJsoup
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import okhttp3.Request
 import okhttp3.Response
-import org.jsoup.nodes.Element
+import eu.kanade.tachiyomi.util.asJsoup
 
 class Animecix : AnimeHttpSource() {
 
@@ -17,6 +20,8 @@ class Animecix : AnimeHttpSource() {
     override val baseUrl = "https://animecix.tv"
     override val lang = "tr"
     override val supportsLatest = true
+
+    private val jsonParser = Json { ignoreUnknownKeys = true }
 
     // --- POPULAR / LATEST ---
     override fun popularAnimeRequest(page: Int): Request =
@@ -28,7 +33,7 @@ class Animecix : AnimeHttpSource() {
 
         val episodes = apiResponse.data.map { ep ->
             SAnime.create().apply {
-                title = "${ep.title_name}"
+                title = ep.title_name
                 thumbnail_url = ep.title_poster
                 setUrlWithoutDomain("$baseUrl/secure/titles/${ep.title_id}?titleId=${ep.title_id}")
             }
@@ -47,7 +52,7 @@ class Animecix : AnimeHttpSource() {
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request =
         GET("$baseUrl/search?q=$query&page=$page", headers)
 
-    override fun searchAnimeParse(response: Response): AnimesPage = popularAnimeParse(response)
+    override fun searchAnimeParse(response: Response) = popularAnimeParse(response)
 
     // --- ANIME DETAILS ---
     override fun animeDetailsParse(response: Response): SAnime {
@@ -83,24 +88,23 @@ class Animecix : AnimeHttpSource() {
     }
 }
 
-
 // --- JSON DATA CLASSES ---
 @Serializable
 data class ApiResponse(
     val current_page: Int,
     val last_page: Int,
-    val data: List<EpisodeData>
+    val data: List<EpisodeData>,
 )
 
 @Serializable
 data class EpisodeData(
     val title_name: String,
     val title_id: Int,
-    val title_poster: String
+    val title_poster: String,
 )
 
 @Serializable
 data class VideoData(
     val url: String,
-    val quality: String
+    val quality: String,
 )
