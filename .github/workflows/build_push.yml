@@ -9,8 +9,6 @@ on:
       - '!**.md'
       - '!.github/**'
       - '.github/scripts/**'
-      - '.github/workflows/build_push.yml'
-  # Manual trigger
   workflow_dispatch:
 
 concurrency:
@@ -34,7 +32,7 @@ jobs:
       delete: ${{ steps.generate-matrices.outputs.delete }}
     steps:
       - name: Checkout ${{ github.ref_name }} branch
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v5.0.0
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -50,17 +48,13 @@ jobs:
 
       - name: Find lib changes
         id: modified-libs
-        uses: tj-actions/changed-files@ed68ef82c095e0d48ec87eccea555d944a631a4c # v46.0.5
+        uses: tj-actions/changed-files@v46.0.5
         with:
           files: lib/
           files_ignore: lib/**.md
           files_separator: " "
           safe_output: false
 
-        # This step is going to commit, but this will not trigger another workflow.
-        # If any changes to lib/ caused on master branch, bump the extensions that uses the modified lib.
-        # If any changes caused by the merge commit, skip this step because versions should already pumped with that merge.
-        # But that should be avoided because our own extensions may not be bumped.
       - name: Bump extensions that uses a modified lib
         if: steps.modified-libs.outputs.any_changed == 'true'
         env:
@@ -74,19 +68,19 @@ jobs:
           git push
 
       - name: Set up Java
-        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
+        uses: actions/setup-java@v5.0.0
         with:
           java-version: 17
           distribution: temurin
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
+        uses: gradle/actions/setup-gradle@v4.4.2
         with:
           cache-read-only: true
 
       - name: Get last successful CI commit
         id: last_successful_ci_commit
-        uses: nrwl/nx-set-shas@826660b82addbef3abff5fa871492ebad618c9e1 # v4.3.3
+        uses: nrwl/nx-set-shas@v4.3.3
         with:
           main-branch-name: ${{ github.ref_name }}
 
@@ -104,31 +98,48 @@ jobs:
       matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
     steps:
       - name: Checkout ${{ github.ref_name }} branch
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v5.0.0
         with:
           ref: ${{ github.ref_name }}
 
       - name: Set up Java
-        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
+        uses: actions/setup-java@v5.0.0
         with:
           java-version: 17
           distribution: temurin
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
+        uses: gradle/actions/setup-gradle@v4.4.2
         with:
           cache-read-only: ${{ matrix.chunk.number > 1 }}
 
-      - name: Prepare signing key
+      - name: Generate temporary signing key
         run: |
-          echo ${{ secrets.SIGNING_KEY }} | base64 -d > signingkey.jks
-          chmod 600 signingkey.jks
+          KEYSTORE="signingkey.jks"
+          ALIAS="ci-key"
+          STOREPASS="ci-storepass"
+          KEYPASS="ci-keypass"
+
+          keytool -genkeypair \
+            -v \
+            -keystore $KEYSTORE \
+            -alias $ALIAS \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass $STOREPASS \
+            -keypass $KEYPASS \
+            -dname "CN=CI, OU=CI, O=CI, L=CI, S=CI, C=CI"
+
+          echo "ALIAS=$ALIAS" >> $GITHUB_ENV
+          echo "KEY_STORE_PASSWORD=$STOREPASS" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=$KEYPASS" >> $GITHUB_ENV
 
       - name: Build extensions (${{ matrix.chunk.number }})
         env:
-          ALIAS: ${{ secrets.ALIAS }}
-          KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          ALIAS: "ci-key" 
+          KEY_STORE_PASSWORD: "ci-storepass" 
+          KEY_PASSWORD: "ci-keypass"
           MEGACLOUD_API: ${{ secrets.MEGACLOUD_API }}
           KISSKH_API: ${{ secrets.KISSKH_API }}
           KISSKH_SUB_API: ${{ secrets.KISSKH_SUB_API }}
@@ -136,7 +147,7 @@ jobs:
           ./gradlew $(echo '${{ toJson(matrix.chunk.modules) }}' | jq -r 'join(" ")')
 
       - name: Upload APKs (${{ matrix.chunk.number }})
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@v4.6.2
         if: github.repository == 'yuzono/aniyomi-extensions'
         with:
           name: "individual-apks-${{ matrix.chunk.number }}"
@@ -153,18 +164,18 @@ jobs:
     runs-on: 'ubuntu-24.04'
     steps:
       - name: Download APK artifacts
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        uses: actions/download-artifact@v5.0.0
         with:
           path: ~/apk-artifacts
 
       - name: Set up JDK
-        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
+        uses: actions/setup-java@v5.0.0
         with:
           java-version: 17
           distribution: temurin
 
       - name: Checkout ${{ github.ref_name }} branch
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v5.0.0
         with:
           ref: ${{ github.ref_name }}
           path: ${{ github.ref_name }}
@@ -179,7 +190,7 @@ jobs:
           python ./.github/scripts/create-repo.py
 
       - name: Checkout repo branch
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v5.0.0
         with:
           repository: yuzono/aniyomi-repo
           token: ${{ secrets.BOT_PAT }}
@@ -192,12 +203,10 @@ jobs:
           python ../${{ github.ref_name }}/.github/scripts/merge-repo.py '${{ needs.prepare.outputs.delete }}' '${{ github.ref_name }}/repo'
 
       - name: Deploy repo
-        uses: EndBug/add-and-commit@a94899bca583c204427a224a7af87c02f9b325d5 # v9.1.4
+        uses: EndBug/add-and-commit@v9.1.4
         with:
           message: "${{ needs.prepare.outputs.latestCommitMessage }}"
           cwd: "./repo"
-          # committer_name: github-actions[bot]
-          # committer_email: github-actions[bot]@users.noreply.github.com
 
       - name: Sync repo
         env:
