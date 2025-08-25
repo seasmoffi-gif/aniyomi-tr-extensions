@@ -1,49 +1,187 @@
-name: CI Build
+name: CI
 
 on:
   push:
     branches:
       - master
+    paths:
+      - '**'
+      - '!**.md'
+      - '!.github/**'
+      - '.github/scripts/**'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  CI_CHUNK_SIZE: 65
+  IS_PR_CHECK: false
+
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
+  prepare:
+    name: Prepare job
+    runs-on: 'ubuntu-24.04'
+    outputs:
+      latestCommitMessage: ${{ steps.set-env.outputs.LATEST_COMMIT_MESSAGE }}
+      matrix: ${{ steps.generate-matrices.outputs.matrix }}
+      delete: ${{ steps.generate-matrices.outputs.delete }}
     steps:
-      # Kodun kendisi
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      # JDK kurulumu
-      - name: Setup Java
-        uses: actions/setup-java@v5
+      - name: Checkout ${{ github.ref_name }} branch
+        uses: actions/checkout@v5.0.0
         with:
-          distribution: temurin
+          fetch-depth: 0
+
+      - name: Set env
+        id: set-env
+        run: |
+          echo "LATEST_COMMIT_MESSAGE<<{delimiter}
+          $(git log -1 --pretty=%B)
+
+          Built on commit: $(git log -1 --pretty=%H)
+          {delimiter}" >> $GITHUB_OUTPUT
+
+      - name: Find lib changes
+        id: modified-libs
+        uses: tj-actions/changed-files@v46.0.5
+        with:
+          files: lib/
+          files_ignore: lib/**.md
+          files_separator: " "
+          safe_output: false
+
+      - name: Bump extensions that uses a modified lib
+        if: steps.modified-libs.outputs.any_changed == 'true'
+        env:
+          COMMIT_MESSAGE: ${{ steps.set-env.outputs.LATEST_COMMIT_MESSAGE }}
+        run: |
+          latest_commit_author=$(git log -1 --pretty=%an)
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          chmod +x ./.github/scripts/bump-versions.py
+          ./.github/scripts/bump-versions.py "$COMMIT_MESSAGE" ${{ steps.modified-libs.outputs.all_changed_files }}
+          git push
+
+      - name: Set up Java
+        uses: actions/setup-java@v5.0.0
+        with:
           java-version: 17
+          distribution: temurin
 
-      # Gradle setup
-      - name: Setup Gradle
-        uses: gradle/gradle-build-action@v2
-
-      # Debug APK build (keyless)
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
-
-      # Release APK build (debug key ile)
-      - name: Build release APK with debug key
-        run: ./gradlew assembleRelease \
-          -Psigning.storeFile=$HOME/.android/debug.keystore \
-          -Psigning.storePassword=android \
-          -Psigning.keyAlias=androiddebugkey \
-          -Psigning.keyPassword=android
-
-      # APK'yı artifact olarak sakla
-      - name: Upload APKs
-        uses: actions/upload-artifact@v4
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4.4.2
         with:
-          name: aniyomi-apks
-          path: |
-            **/build/outputs/apk/debug/*.apk
-            **/build/outputs/apk/release/*.apk
-          retention-days: 7
+          cache-read-only: true
+
+      - name: Get last successful CI commit
+        id: last_successful_ci_commit
+        uses: nrwl/nx-set-shas@v4.3.3
+        with:
+          main-branch-name: ${{ github.ref_name }}
+
+      - id: generate-matrices
+        name: Create output matrices
+        run: |
+          python ./.github/scripts/generate-build-matrices.py ${{ steps.last_successful_ci_commit.outputs.base }} Release
+
+  build:
+    name: Build extensions (${{ matrix.chunk.number }})
+    needs: prepare
+    runs-on: 'ubuntu-24.04'
+    if: ${{ toJson(fromJson(needs.prepare.outputs.matrix).chunk) != '[]' }}
+    strategy:
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    steps:
+      - name: Checkout ${{ github.ref_name }} branch
+        uses: actions/checkout@v5.0.0
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v5.0.0
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4.4.2
+        with:
+          cache-read-only: ${{ matrix.chunk.number > 1 }}
+
+      - name: Build extensions (${{ matrix.chunk.number }})
+        run: |
+          ./gradlew $(echo '${{ toJson(matrix.chunk.modules) }}' | jq -r 'join(" ")')
+
+      - name: Upload APKs (${{ matrix.chunk.number }})
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: "individual-apks-${{ matrix.chunk.number }}"
+          path: "**/*.apk"
+          retention-days: 1
+
+  publish:
+    name: Publish extension repo
+    needs: [prepare, build]
+    runs-on: 'ubuntu-24.04'
+    steps:
+      - name: Download APK artifacts
+        uses: actions/download-artifact@v5.0.0
+        with:
+          path: ~/apk-artifacts
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5.0.0
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Checkout ${{ github.ref_name }} branch
+        uses: actions/checkout@v5.0.0
+        with:
+          ref: ${{ github.ref_name }}
+          path: ${{ github.ref_name }}
+
+      - name: Create repo artifacts
+        run: |
+          cd ${{ github.ref_name }}
+          python ./.github/scripts/move-built-apks.py
+          INSPECTOR_LINK="$(curl -s "https://api.github.com/repos/komikku-app/aniyomi-extensions-inspector/releases/latest" | jq -r '.assets[0].browser_download_url')"
+          curl -L "$INSPECTOR_LINK" -o ./Inspector.jar
+          java -jar ./Inspector.jar "repo/apk" "output.json" "tmp"
+          python ./.github/scripts/create-repo.py
+
+      - name: Checkout repo branch
+        uses: actions/checkout@v5.0.0
+        with:
+          ref: repo
+          path: repo
+
+      - name: Merge repo
+        run: |
+          cd repo
+          python ../${{ github.ref_name }}/.github/scripts/merge-repo.py '${{ needs.prepare.outputs.delete }}' '${{ github.ref_name }}/repo'
+
+      - name: Deploy repo
+        uses: EndBug/add-and-commit@v9.1.4
+        with:
+          message: "${{ needs.prepare.outputs.latestCommitMessage }}"
+          cwd: "./repo"
+
+      - name: Sync repo
+        run: |
+          cd repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin
+          git reset origin/repo
+          git add -A
+          git commit --amend -m "${{ needs.prepare.outputs.latestCommitMessage }}" --no-sign --allow-empty || echo "No changes to commit"
+          git push origin HEAD:repo --force
+
+      - name: Purge cached index on jsDelivr
+        run: |
+          curl https://purge.jsdelivr.net/gh/${{ github.repository }}@repo/index.min.json
