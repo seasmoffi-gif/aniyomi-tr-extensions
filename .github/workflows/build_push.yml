@@ -112,11 +112,9 @@ jobs:
         with:
           cache-read-only: ${{ matrix.chunk.number > 1 }}
 
-      # Keystore indir
       - name: Download keystore
         run: |
-          curl -L "https://bot.yusiqo.com/trapp.keystore" -o release.keystore
-
+          curl -L "https://bot.yusiqo.com/trapp.keystore" -o src/tr/animecix/release.keystore
       # Signed APK üret
       - name: Build signed APK
         run: |
