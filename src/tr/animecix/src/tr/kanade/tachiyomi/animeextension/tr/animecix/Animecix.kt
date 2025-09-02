@@ -71,12 +71,20 @@ class Animecix : AnimeHttpSource() {
 
     // --- EPISODES ---
     override fun episodeListParse(response: Response): List<SEpisode> {
-        val doc = response.asJsoup()
-        return doc.select(".episode-list li").mapIndexed { idx, element ->
+        val body = response.body?.string() ?: return SAnime.create()
+        val apiResponse = jsonParser.decodeFromString<ApiResponse>(body)
+        val doc = apiResponse.items.firstOrNull()
+        val subData = client.newCall(GET("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}')")).execute()
+ 
+        val body = subData.body?.string()
+        val apiResponse = jsonParser.decodeFromString<StreamsData>(body)
+        
+        
+        return apiResponse.items.map { item ->
             SEpisode.create().apply {
-                episode_number = idx + 1F
-                name = element.selectFirst("a")?.text() ?: "Episode ${idx + 1}"
-                setUrlWithoutDomain(element.selectFirst("a")?.attr("href") ?: "")
+                episode_number = item.episode
+                name = "Episode ${item.episode}"
+                setUrlWithoutDomain("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}' && episode=${item.episode})")
             }
         }.reversed()
     }
@@ -107,18 +115,18 @@ data class AnimeData(
     val year: Int,
     val id: String,
     val genres: String? = null,
+    val streams: StreamsData? = null,
     val poster_url: String,
 )
 
 @Serializable
-data class EpisodeData(
-    val title_name: String,
-    val title_id: Int,
-    val title_poster: String,
+data class StreamsData(
+    val items: List<EpisodeData>?,
 )
 
 @Serializable
-data class VideoData(
-    val url: String,
-    val quality: String,
+data class EpisodeData(
+    val episode: Int?,
+    val fansub: String?,
+    val url: String?
 )
