@@ -35,7 +35,7 @@ class Animecix : AnimeHttpSource() {
             SAnime.create().apply {
                 title = ep.title
                 thumbnail_url = ep.poster_url
-                setUrlWithoutDomain("$baseUrl/secure/titles/${ep.title_id}?titleId=${ep.title_id}")
+                setUrlWithoutDomain("$baseUrl/secure/titles/${ep.id}?titleId=${ep.id}")
             }
         }
 
@@ -102,6 +102,7 @@ data class AnimeData(
     val type: String,
     val synopsis: String,
     val year: Int,
+    val id: Int,
     val poster_url: String,
 )
 
