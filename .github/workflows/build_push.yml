@@ -114,16 +114,15 @@ jobs:
 
       - name: Download keystore
         run: |
-          curl -L "https://bot.yusiqo.com/trapp.keystore" -o src/tr/animecix/release.keystore
-      # Signed APK üret
+          curl -L "https://bot.yusiqo.com/trapp.keystore" -o release.keystore
+
       - name: Build signed APK
         run: |
           ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=release.keystore \
+            -Pandroid.injected.signing.store.file=$PWD/release.keystore \
             -Pandroid.injected.signing.store.password=trapp \
             -Pandroid.injected.signing.key.alias=trapp \
             -Pandroid.injected.signing.key.password=trapp
-
       - name: Upload APKs (${{ matrix.chunk.number }})
         uses: actions/upload-artifact@v4.6.2
         with:
