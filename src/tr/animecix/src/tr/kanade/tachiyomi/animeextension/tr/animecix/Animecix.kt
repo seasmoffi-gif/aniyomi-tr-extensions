@@ -33,6 +33,21 @@ class Animecix : AnimeHttpSource() {
     override val supportsLatest = true
 
     private val jsonParser = Json { ignoreUnknownKeys = true }
+    
+    private val aincradExtractor by lazy { AincradExtractor(client, headers, json) }
+    private val doodExtractor by lazy { DoodExtractor(client) }
+    private val filemoonExtractor by lazy { FilemoonExtractor(client) }
+    private val gdrivePlayerExtractor by lazy { GdrivePlayerExtractor(client) }
+    private val mp4uploadExtractor by lazy { Mp4uploadExtractor(client) }
+    private val okruExtractor by lazy { OkruExtractor(client) }
+    private val sendvidExtractor by lazy { SendvidExtractor(client, headers) }
+    private val sibnetExtractor by lazy { SibnetExtractor(client) }
+    private val tauvideoExtractor by lazy { TauvideoExtractor(client) }
+    private val streamtapeExtractor by lazy { StreamTapeExtractor(client) }
+    private val uqloadExtractor by lazy { UqloadExtractor(client) }
+    private val voeExtractor by lazy { VoeExtractor(client, headers) }
+    private val yourUploadExtractor by lazy { YourUploadExtractor(client) }
+
 
     // --- POPULAR / LATEST ---
     override fun popularAnimeRequest(page: Int): Request =
