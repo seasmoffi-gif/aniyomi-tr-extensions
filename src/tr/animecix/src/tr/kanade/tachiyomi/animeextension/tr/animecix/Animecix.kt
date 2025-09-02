@@ -47,7 +47,6 @@ class Animecix : AnimeHttpSource() {
     private val voeExtractor by lazy { VoeExtractor(client, headers) }
     private val yourUploadExtractor by lazy { YourUploadExtractor(client) }
 
-
     // --- POPULAR / LATEST ---
     override fun popularAnimeRequest(page: Int): Request =
         GET(
