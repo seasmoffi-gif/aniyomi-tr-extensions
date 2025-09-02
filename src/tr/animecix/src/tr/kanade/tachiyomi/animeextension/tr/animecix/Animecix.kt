@@ -35,7 +35,7 @@ class Animecix : AnimeHttpSource() {
             SAnime.create().apply {
                 title = ep.title
                 thumbnail_url = ep.poster_url
-                setUrlWithoutDomain("$baseUrl/secure/titles/${ep.id}?titleId=${ep.id}")
+                setUrlWithoutDomain("$baseUrl/records?filter=(id~'${ep.id}')")
             }
         }
 
@@ -44,26 +44,30 @@ class Animecix : AnimeHttpSource() {
     }
 
     override fun latestUpdatesRequest(page: Int): Request =
-        GET("$baseUrl/records?sort=-created&page=$page&=?fields=title,type,synopsis,year,poster_url", headers)
+        GET("$baseUrl/records?sort=-created&page=$page&fields=title,type,synopsis,year,poster_url", headers)
 
     override fun latestUpdatesParse(response: Response) = popularAnimeParse(response)
 
     // --- SEARCH ---
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request =
-        GET("$baseUrl/records?filter=(title~'$query')&page=$page", headers)
+        GET("$baseUrl/records?filter=(title='$query')&page=$page&fields=title,type,synopsis,year,poster_url,genres", headers)
 
     override fun searchAnimeParse(response: Response) = popularAnimeParse(response)
 
     // --- ANIME DETAILS ---
     override fun animeDetailsParse(response: Response): SAnime {
-        val doc = response.asJsoup()
-        return SAnime.create().apply {
-            title = doc.selectFirst("h1.title")?.text() ?: ""
-            description = doc.selectFirst(".description")?.text()
-            genre = doc.select(".genres a").joinToString { it.text() }
-            thumbnail_url = doc.selectFirst(".thumbnail img")?.attr("abs:src")
+        val body = response.body?.string() ?: return AnimesPage(emptyList(), false)
+        val apiResponse = jsonParser.decodeFromString<ApiResponse>(body)
+        val firstEpisode = apiResponse.items.firstOrNull()?.let { doc ->
+    return SAnime.create().apply {
+            title = doc.title
+            description = doc.synopsis
+            genre = doc.genres
+            thumbnail_url = doc.poster_url
             status = SAnime.UNKNOWN
         }
+    }
+        
     }
 
     // --- EPISODES ---
@@ -102,7 +106,8 @@ data class AnimeData(
     val type: String,
     val synopsis: String,
     val year: Int,
-    val id: Int,
+    val id: String,
+    val genres: String? = null,
     val poster_url: String,
 )
 
