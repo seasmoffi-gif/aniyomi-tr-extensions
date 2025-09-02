@@ -33,7 +33,6 @@ class Animecix : AnimeHttpSource() {
     override val supportsLatest = true
 
     private val jsonParser = Json { ignoreUnknownKeys = true }
-    
     private val aincradExtractor by lazy { AincradExtractor(client, headers, json) }
     private val doodExtractor by lazy { DoodExtractor(client) }
     private val filemoonExtractor by lazy { FilemoonExtractor(client) }
