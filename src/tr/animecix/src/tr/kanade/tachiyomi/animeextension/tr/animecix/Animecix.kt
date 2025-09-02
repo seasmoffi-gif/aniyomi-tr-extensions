@@ -71,22 +71,26 @@ class Animecix : AnimeHttpSource() {
 
     // --- EPISODES ---
     override fun episodeListParse(response: Response): List<SEpisode> {
-        val body = response.body?.string() ?: return SAnime.create()
+        val body = response.body?.string() ?: return emptyList()
         val apiResponse = jsonParser.decodeFromString<ApiResponse>(body)
         val doc = apiResponse.items.firstOrNull()
-        val subData = client.newCall(GET("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}')")).execute()
 
-        val body = subData.body?.string()
-        val apiResponse = jsonParser.decodeFromString<StreamsData>(body)
+        val subData = client.newCall(
+            GET("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}')")
+        ).execute()
 
+        val subBody = subData.body?.string() ?: return emptyList()
+        val streamsResponse = jsonParser.decodeFromString<StreamsData>(subBody)
 
-        return apiResponse.items.map { item ->
+        return streamsResponse.items?.map { item ->
             SEpisode.create().apply {
-                episode_number = item.episode
-                name = "Episode ${item.episode}"
-                setUrlWithoutDomain("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}' && episode=${item.episode})")
+                episode_number = item.episode ?: 0
+                name = "Episode ${item.episode ?: "?"}"
+                setUrlWithoutDomain(
+                    "$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}' && episode=${item.episode})"
+                )
             }
-        }.reversed()
+        }?.reversed() ?: emptyList()
     }
 
     // --- VIDEOS ---
@@ -128,5 +132,5 @@ data class StreamsData(
 data class EpisodeData(
     val episode: Int?,
     val fansub: String?,
-    val url: String?, 
+    val url: String?,
 )
