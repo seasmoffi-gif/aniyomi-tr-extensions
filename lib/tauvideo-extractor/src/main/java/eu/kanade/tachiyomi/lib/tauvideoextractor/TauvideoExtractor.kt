@@ -1,35 +1,57 @@
 package eu.kanade.tachiyomi.lib.tauvideoextractor
 
 import eu.kanade.tachiyomi.animesource.model.Video
-import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.util.asJsoup
 import okhttp3.Headers
-import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import kotlinx.serialization.*
+import kotlinx.serialization.json.*
 
 class TauvideoExtractor(private val client: OkHttpClient, private val headers: Headers) {
 
-	override val name            = "TauVideo"
-    override val mainUrl         = "https://tau-video.xyz"
-
     fun videosFromUrl(url: String, prefix: String = ""): List<Video> {
+        val mainUrl = "https://tau-video.xyz"
         val videoKey = url.split("/").last()
         val refererHeader = Headers.headersOf("referer", "https://animecix.tv")
-        val videoUrl = "${mainUrl}/api/video/${videoKey}"
-        val api = app.get(videoUrl).parsedSafe<TauVideoUrls>() ?: throw ErrorLoadingException("TauVideo")
+        val videoUrl = "$mainUrl/api/video/$videoKey"
+
+        // HTTP isteği
+        val request = Request.Builder()
+            .url(videoUrl)
+            .get()
+            .build()
+
+        val api = client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw ErrorLoadingException("TauVideo")
+            val body = response.body?.string() ?: throw ErrorLoadingException("TauVideo")
+            Json.decodeFromString<TauVideoUrls>(body)
+        }
+
         val videoList = mutableListOf<Video>()
         for (video in api.urls) {
-            videoList.add(Video(video.url, "TauVideo ${video.label}", video.url, headers = refererHeader)) ,
-       } 
-       return videoList
+            videoList.add(
+                Video(
+                    video.url,
+                    "TauVideo ${video.label}",
+                    video.url,
+                    headers = refererHeader
+                )
+            )
+        }
+        return videoList
     }
 
+    @Serializable
     data class TauVideoUrls(
-        @JsonProperty("urls") val urls: List<TauVideoData>
+        val urls: List<TauVideoData>
     )
 
+    @Serializable
     data class TauVideoData(
-        @JsonProperty("url")   val url: String,
-        @JsonProperty("label") val label: String,
+        val url: String,
+        val label: String
     )
 }
+
+// Hata sınıfını da ekleyelim
+class ErrorLoadingException(source: String) : Exception("Error loading from $source")
