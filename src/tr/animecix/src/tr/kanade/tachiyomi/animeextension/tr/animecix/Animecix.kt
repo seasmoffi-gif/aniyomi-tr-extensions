@@ -95,7 +95,7 @@ class Animecix : AnimeHttpSource() {
 
         return streamsResponse.items?.map { item ->
             SEpisode.create().apply {
-                episode_number = item.episode ?: 0
+                episode_number = (item.episode ?: 0).toFloat()
                 name = "Episode ${item.episode ?: "?"}"
                 setUrlWithoutDomain(
                     "$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}' && episode=${item.episode})",
