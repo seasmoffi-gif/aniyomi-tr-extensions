@@ -36,7 +36,7 @@ class Animecix : AnimeHttpSource() {
             SAnime.create().apply {
                 title = item.title
                 thumbnail_url = item.poster_url
-                setUrlWithoutDomain("$baseUrl/records?filter=(id~'${item.id}')")
+                setUrlWithoutDomain("https://base.vulnton.org/api/collections/anime/records?filter=(id='${item.id}')")
             }
         }
 
