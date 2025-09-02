@@ -17,6 +17,7 @@ import okhttp3.Response
 class Animecix : AnimeHttpSource() {
 
     override val name = "AnimeDB"
+
     override val baseUrl = "https://base.vulnton.org"
     override val lang = "tr"
     override val supportsLatest = true
