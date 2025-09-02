@@ -16,41 +16,41 @@ import okhttp3.Response
 
 class Animecix : AnimeHttpSource() {
 
-    override val name = "Animecix"
+    override val name = "AnimeDB"
 
-    override val baseUrl = "https://animecix.tv"
+    override val baseUrl = "https://base.vulnton.org/api/collections/anime"
     override val lang = "tr"
     override val supportsLatest = true
     private val jsonParser = Json { ignoreUnknownKeys = true }
 
     // --- POPULAR / LATEST ---
     override fun popularAnimeRequest(page: Int): Request =
-        GET("$baseUrl/secure/last-episodes?page=$page", headers)
+        GET("$baseUrl/records?page=$page&=?fields=title,type,synopsis,year,poster_url", headers)
 
     override fun popularAnimeParse(response: Response): AnimesPage {
         val body = response.body?.string() ?: return AnimesPage(emptyList(), false)
         val apiResponse = jsonParser.decodeFromString<ApiResponse>(body)
 
-        val episodes = apiResponse.data.map { ep ->
+        val episodes = apiResponse.items.map { ep ->
             SAnime.create().apply {
-                title = ep.title_name
-                thumbnail_url = ep.title_poster
+                title = ep.title
+                thumbnail_url = ep.poster_url
                 setUrlWithoutDomain("$baseUrl/secure/titles/${ep.title_id}?titleId=${ep.title_id}")
             }
         }
 
-        val hasNext = apiResponse.current_page < apiResponse.last_page
+        val hasNext = apiResponse.page < apiResponse.totalPages
         return AnimesPage(episodes, hasNext)
     }
 
     override fun latestUpdatesRequest(page: Int): Request =
-        GET("$baseUrl/latest?page=$page", headers)
+        GET("$baseUrl/records?sort=-created&page=$page&=?fields=title,type,synopsis,year,poster_url", headers)
 
     override fun latestUpdatesParse(response: Response) = popularAnimeParse(response)
 
     // --- SEARCH ---
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request =
-        GET("$baseUrl/search?q=$query&page=$page", headers)
+        GET("$baseUrl/records?filter=(title~'$query')&page=$page", headers)
 
     override fun searchAnimeParse(response: Response) = popularAnimeParse(response)
 
@@ -91,9 +91,18 @@ class Animecix : AnimeHttpSource() {
 // --- JSON DATA CLASSES ---
 @Serializable
 data class ApiResponse(
-    val current_page: Int,
-    val last_page: Int,
-    val data: List<EpisodeData>,
+    val page: Int,
+    val totalPages: Int,
+    val items: List<AnimeData>,
+)
+
+@Serializable
+data class AnimeData(
+    val title: String,
+    val type: String,
+    val synopsis: String,
+    val year: Int,
+    val poster_url: String,
 )
 
 @Serializable
