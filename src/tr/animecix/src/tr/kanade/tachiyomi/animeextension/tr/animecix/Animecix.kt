@@ -25,7 +25,10 @@ class Animecix : AnimeHttpSource() {
 
     // --- POPULAR / LATEST ---
     override fun popularAnimeRequest(page: Int): Request =
-        GET("$baseUrl/api/collections/anime/records?page=$page&fields=title,type,synopsis,year,poster_url,id", headers)
+        GET(
+            "$baseUrl/api/collections/anime/records?page=$page&fields=title,type,synopsis,year,poster_url,id",
+            headers,
+        )
 
     override fun popularAnimeParse(response: Response): AnimesPage {
         val body = response.body?.string() ?: return AnimesPage(emptyList(), false)
@@ -35,7 +38,9 @@ class Animecix : AnimeHttpSource() {
             SAnime.create().apply {
                 title = item.title
                 thumbnail_url = item.poster_url
-                setUrlWithoutDomain("$baseUrl/api/collections/anime/records?filter=(id='${item.id}')")
+                setUrlWithoutDomain(
+                    "$baseUrl/api/collections/anime/records?filter=(id='${item.id}')",
+                )
             }
         }
 
@@ -44,13 +49,19 @@ class Animecix : AnimeHttpSource() {
     }
 
     override fun latestUpdatesRequest(page: Int): Request =
-        GET("$baseUrl/api/collections/anime/records?sort=-created&page=$page&fields=title,type,synopsis,year,poster_url,id", headers)
+        GET(
+            "$baseUrl/api/collections/anime/records?sort=-created&page=$page&fields=title,type,synopsis,year,poster_url,id",
+            headers,
+        )
 
     override fun latestUpdatesParse(response: Response) = popularAnimeParse(response)
 
     // --- SEARCH ---
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request =
-        GET("$baseUrl/api/collections/anime/records?filter=(title='$query')&page=$page&fields=title,type,synopsis,year,poster_url,id,genres", headers)
+        GET(
+            "$baseUrl/api/collections/anime/records?filter=(title='$query')&page=$page&fields=title,type,synopsis,year,poster_url,id,genres",
+            headers,
+        )
 
     override fun searchAnimeParse(response: Response) = popularAnimeParse(response)
 
@@ -76,7 +87,7 @@ class Animecix : AnimeHttpSource() {
         val doc = apiResponse.items.firstOrNull()
 
         val subData = client.newCall(
-            GET("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}')")
+            GET("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}')"),
         ).execute()
 
         val subBody = subData.body?.string() ?: return emptyList()
@@ -87,7 +98,7 @@ class Animecix : AnimeHttpSource() {
                 episode_number = item.episode ?: 0
                 name = "Episode ${item.episode ?: "?"}"
                 setUrlWithoutDomain(
-                    "$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}' && episode=${item.episode})"
+                    "$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}' && episode=${item.episode})",
                 )
             }
         }?.reversed() ?: emptyList()
@@ -98,7 +109,11 @@ class Animecix : AnimeHttpSource() {
         val doc = response.asJsoup()
         return doc.select("iframe").mapNotNull { element ->
             val videoUrl = element.attr("abs:src")
-            if (videoUrl.isNotBlank()) Video(videoUrl, "Default", videoUrl) else null
+            if (videoUrl.isNotBlank()) {
+                Video(videoUrl, "Default", videoUrl)
+            } else {
+                null
+            }
         }
     }
 }
