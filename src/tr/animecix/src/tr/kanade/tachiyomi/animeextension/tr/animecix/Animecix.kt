@@ -75,7 +75,7 @@ class Animecix : AnimeHttpSource() {
         val apiResponse = jsonParser.decodeFromString<ApiResponse>(body)
         val doc = apiResponse.items.firstOrNull()
         val subData = client.newCall(GET("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}')")).execute()
- 
+
         val body = subData.body?.string()
         val apiResponse = jsonParser.decodeFromString<StreamsData>(body)
         
