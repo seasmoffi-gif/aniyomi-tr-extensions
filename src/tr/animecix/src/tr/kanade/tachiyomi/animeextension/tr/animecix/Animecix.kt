@@ -26,7 +26,7 @@ class Animecix : AnimeHttpSource() {
 
     // --- POPULAR / LATEST ---
     override fun popularAnimeRequest(page: Int): Request =
-        GET("$baseUrl/records?page=$page&fields=title,type,synopsis,year,poster_url", headers)
+        GET("$baseUrl/records?page=$page&fields=title,type,synopsis,year,poster_url,id", headers)
 
     override fun popularAnimeParse(response: Response): AnimesPage {
         val body = response.body?.string() ?: return AnimesPage(emptyList(), false)
@@ -45,13 +45,13 @@ class Animecix : AnimeHttpSource() {
     }
 
     override fun latestUpdatesRequest(page: Int): Request =
-        GET("$baseUrl/records?sort=-created&page=$page&fields=title,type,synopsis,year,poster_url", headers)
+        GET("$baseUrl/records?sort=-created&page=$page&fields=title,type,synopsis,year,poster_url,id", headers)
 
     override fun latestUpdatesParse(response: Response) = popularAnimeParse(response)
 
     // --- SEARCH ---
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request =
-        GET("$baseUrl/records?filter=(title='$query')&page=$page&fields=title,type,synopsis,year,poster_url,genres", headers)
+        GET("$baseUrl/records?filter=(title='$query')&page=$page&fields=title,type,synopsis,year,poster_url,id,genres", headers)
 
     override fun searchAnimeParse(response: Response) = popularAnimeParse(response)
 
