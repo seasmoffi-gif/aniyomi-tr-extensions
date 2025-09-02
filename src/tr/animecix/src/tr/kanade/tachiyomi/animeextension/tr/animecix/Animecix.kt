@@ -6,8 +6,19 @@ import eu.kanade.tachiyomi.animesource.model.SAnime
 import eu.kanade.tachiyomi.animesource.model.SEpisode
 import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
+import eu.kanade.tachiyomi.lib.doodextractor.DoodExtractor
+import eu.kanade.tachiyomi.lib.filemoonextractor.FilemoonExtractor
+import eu.kanade.tachiyomi.lib.gdriveplayerextractor.GdrivePlayerExtractor
+import eu.kanade.tachiyomi.lib.mp4uploadextractor.Mp4uploadExtractor
+import eu.kanade.tachiyomi.lib.okruextractor.OkruExtractor
+import eu.kanade.tachiyomi.lib.sendvidextractor.SendvidExtractor
+import eu.kanade.tachiyomi.lib.sibnetextractor.SibnetExtractor
+import eu.kanade.tachiyomi.lib.tauvideoextractor.TauvideoExtractor
+import eu.kanade.tachiyomi.lib.streamtapeextractor.StreamTapeExtractor
+import eu.kanade.tachiyomi.lib.uqloadextractor.UqloadExtractor
+import eu.kanade.tachiyomi.lib.voeextractor.VoeExtractor
+import eu.kanade.tachiyomi.lib.youruploadextractor.YourUploadExtractor
 import eu.kanade.tachiyomi.network.GET
-import eu.kanade.tachiyomi.util.asJsoup
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -84,10 +95,10 @@ class Animecix : AnimeHttpSource() {
     override fun episodeListParse(response: Response): List<SEpisode> {
         val body = response.body?.string() ?: return emptyList()
         val apiResponse = jsonParser.decodeFromString<ApiResponse>(body)
-        val doc = apiResponse.items.firstOrNull()
+        val doc = apiResponse.items.firstOrNull() ?: return emptyList()
 
         val subData = client.newCall(
-            GET("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}')"),
+            GET("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc.id}')"),
         ).execute()
 
         val subBody = subData.body?.string() ?: return emptyList()
@@ -98,23 +109,56 @@ class Animecix : AnimeHttpSource() {
                 episode_number = (item.episode ?: 0).toFloat()
                 name = "Episode ${item.episode ?: "?"}"
                 setUrlWithoutDomain(
-                    "$baseUrl/api/collections/videos/records?filter=(anime_id='${doc?.id}' && episode=${item.episode})",
+                    "$baseUrl/api/collections/videos/records?filter=(anime_id='${doc.id}' && episode=${item.episode})",
                 )
             }
         }?.reversed() ?: emptyList()
     }
 
+    private fun getVideosFromUrl(firstUrl: String): List<Video> {
+        val url = noRedirectClient.newCall(GET(firstUrl, headers)).execute()
+            .use { it.headers["location"] }
+            ?: return emptyList()
+
+        return when {
+            "filemoon.sx" in url -> filemoonExtractor.videosFromUrl(url, headers = headers)
+            "sendvid.com" in url -> sendvidExtractor.videosFromUrl(url)
+            "video.sibnet" in url -> sibnetExtractor.videosFromUrl(url)
+            "mp4upload" in url -> mp4uploadExtractor.videosFromUrl(url, headers)
+            "ok.ru" in url || "odnoklassniki.ru" in url -> okruExtractor.videosFromUrl(url)
+            "yourupload" in url -> yourUploadExtractor.videoFromUrl(url, headers)
+            "streamtape" in url -> streamtapeExtractor.videoFromUrl(url)?.let(::listOf)
+            "dood" in url -> doodExtractor.videoFromUrl(url)?.let(::listOf)
+            "drive.google" in url -> {
+                val newUrl = "https://gdriveplayer.to/embed2.php?link=$url"
+                gdrivePlayerExtractor.videosFromUrl(newUrl, "GdrivePlayer", headers)
+            }
+            "uqload" in url -> uqloadExtractor.videosFromUrl(url)
+            "voe.sx" in url -> voeExtractor.videosFromUrl(url)
+            "tau-video.xyz" in url -> tauvideoExtractor.videosFromUrl(url)
+            else -> null
+        } ?: emptyList()
+    }
+
     // --- VIDEOS ---
     override fun videoListParse(response: Response): List<Video> {
-        val doc = response.asJsoup()
-        return doc.select("iframe").mapNotNull { element ->
-            val videoUrl = element.attr("abs:src")
-            if (videoUrl.isNotBlank()) {
-                Video(videoUrl, "Default", videoUrl)
-            } else {
-                null
-            }
-        }
+        val subBody = response.body?.string() ?: return emptyList()
+        val streamsResponse = jsonParser.decodeFromString<StreamsData>(subBody)
+
+        return streamsResponse.items?.flatMap { item ->
+            item.url?.let { url ->
+                getVideosFromUrl(url).map {
+                    Video(
+                        it.url,
+                        "[${item.fansub ?: "Fansub"}] ${it.quality}",
+                        it.videoUrl,
+                        it.headers,
+                        it.subtitleTracks,
+                        it.audioTracks,
+                    )
+                }
+            } ?: emptyList()
+        } ?: emptyList()
     }
 }
 
