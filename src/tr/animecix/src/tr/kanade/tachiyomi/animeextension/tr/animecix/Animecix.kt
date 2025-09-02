@@ -14,36 +14,34 @@ import kotlinx.serialization.json.Json
 import okhttp3.Request
 import okhttp3.Response
 
-class Animecix: AnimeHttpSource() {
+class Animecix : AnimeHttpSource() {
 
     override val name = "AnimeDB"
 
     override val baseUrl = "https://base.vulnton.org/api/collections/anime"
     override val lang = "tr"
     override val supportsLatest = true
-    private val jsonParser = Json {
-        ignoreUnknownKeys = true
-    }
+
+    private val jsonParser = Json { ignoreUnknownKeys = true }
 
     // --- POPULAR / LATEST ---
     override fun popularAnimeRequest(page: Int): Request =
-        GET("$baseUrl/records?page=$page&=?fields=title,type,synopsis,year,poster_url", headers)
+        GET("$baseUrl/records?page=$page&fields=title,type,synopsis,year,poster_url", headers)
 
     override fun popularAnimeParse(response: Response): AnimesPage {
-        val body = response.body?.string() ? : return AnimesPage(emptyList(), false)
-        val apiResponse = jsonParser.decodeFromString < ApiResponse > (body)
+        val body = response.body?.string() ?: return AnimesPage(emptyList(), false)
+        val apiResponse = jsonParser.decodeFromString<ApiResponse>(body)
 
-        val episodes = apiResponse.items.map {
-            ep - >
-                SAnime.create().apply {
-                    title = ep.title
-                    thumbnail_url = ep.poster_url
-                    setUrlWithoutDomain("$baseUrl/records?filter=(id~'${ep.id}')")
-                }
+        val animes = apiResponse.items.map { item ->
+            SAnime.create().apply {
+                title = item.title
+                thumbnail_url = item.poster_url
+                setUrlWithoutDomain("$baseUrl/records?filter=(id~'${item.id}')")
+            }
         }
 
         val hasNext = apiResponse.page < apiResponse.totalPages
-        return AnimesPage(episodes, hasNext)
+        return AnimesPage(animes, hasNext)
     }
 
     override fun latestUpdatesRequest(page: Int): Request =
@@ -59,43 +57,37 @@ class Animecix: AnimeHttpSource() {
 
     // --- ANIME DETAILS ---
     override fun animeDetailsParse(response: Response): SAnime {
-        val body = response.body?.string() ? : return AnimesPage(emptyList(), false)
-        val apiResponse = jsonParser.decodeFromString < ApiResponse > (body)
-        val firstEpisode = apiResponse.items.firstOrNull()?.let {
-            doc - >
-                return SAnime.create().apply {
-                    title = doc.title
-                    description = doc.synopsis
-                    genre = doc.genres
-                    thumbnail_url = doc.poster_url
-                    status = SAnime.UNKNOWN
-                }
-        }
+        val body = response.body?.string() ?: return SAnime.create()
+        val apiResponse = jsonParser.decodeFromString<ApiResponse>(body)
+        val doc = apiResponse.items.firstOrNull()
 
+        return SAnime.create().apply {
+            title = doc?.title ?: ""
+            description = doc?.synopsis ?: ""
+            genre = doc?.genres ?: ""
+            thumbnail_url = doc?.poster_url ?: ""
+            status = SAnime.UNKNOWN
+        }
     }
 
     // --- EPISODES ---
-    override fun episodeListParse(response: Response): List < SEpisode > {
+    override fun episodeListParse(response: Response): List<SEpisode> {
         val doc = response.asJsoup()
-        return doc.select(".episode-list li").mapIndexed {
-            idx,
-            element - >
+        return doc.select(".episode-list li").mapIndexed { idx, element ->
             SEpisode.create().apply {
-                episode_number = idx + 1 F
-                name = element.selectFirst("a")?.text() ? : "Episode ${idx + 1}"
-                setUrlWithoutDomain(element.selectFirst("a")?.attr("href") ? : "")
+                episode_number = idx + 1F
+                name = element.selectFirst("a")?.text() ?: "Episode ${idx + 1}"
+                setUrlWithoutDomain(element.selectFirst("a")?.attr("href") ?: "")
             }
         }.reversed()
     }
 
     // --- VIDEOS ---
-    override fun videoListParse(response: Response): List < Video > {
+    override fun videoListParse(response: Response): List<Video> {
         val doc = response.asJsoup()
-        return doc.select("iframe").mapNotNull {
-            element - >
-                val videoUrl = element.attr("abs:src")
-            if (videoUrl.isNotBlank()) Video(videoUrl, "Default", videoUrl)
-            else null
+        return doc.select("iframe").mapNotNull { element ->
+            val videoUrl = element.attr("abs:src")
+            if (videoUrl.isNotBlank()) Video(videoUrl, "Default", videoUrl) else null
         }
     }
 }
@@ -105,7 +97,7 @@ class Animecix: AnimeHttpSource() {
 data class ApiResponse(
     val page: Int,
     val totalPages: Int,
-    val items: List < AnimeData > ,
+    val items: List<AnimeData>,
 )
 
 @Serializable
@@ -115,8 +107,8 @@ data class AnimeData(
     val synopsis: String,
     val year: Int,
     val id: String,
-    val genres: String ? = null,
-    val poster_url : String,
+    val genres: String? = null,
+    val poster_url: String,
 )
 
 @Serializable
