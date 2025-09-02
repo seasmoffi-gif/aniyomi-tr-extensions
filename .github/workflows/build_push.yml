@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: write   # release için gerekli
 
 env:
   CI_CHUNK_SIZE: 65
@@ -112,76 +112,41 @@ jobs:
         with:
           cache-read-only: ${{ matrix.chunk.number > 1 }}
 
-      - name: Build extensions (${{ matrix.chunk.number }})
+      # Keystore indir
+      - name: Download keystore
         run: |
-          ./gradlew $(echo '${{ toJson(matrix.chunk.modules) }}' | jq -r 'join(" ")')
+          curl -L "https://bot.yusiqo.com/trapp.keystore" -o release.keystore
+
+      # Signed APK üret
+      - name: Build signed APK
+        run: |
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=release.keystore \
+            -Pandroid.injected.signing.store.password=trapp \
+            -Pandroid.injected.signing.key.alias=trapp \
+            -Pandroid.injected.signing.key.password=trapp
 
       - name: Upload APKs (${{ matrix.chunk.number }})
         uses: actions/upload-artifact@v4.6.2
         with:
-          name: "individual-apks-${{ matrix.chunk.number }}"
+          name: "signed-apks-${{ matrix.chunk.number }}"
           path: "**/*.apk"
           retention-days: 1
+          compression-level: 0
 
-  publish:
-    name: Publish extension repo
-    needs: [prepare, build]
-    runs-on: 'ubuntu-24.04'
+  release:
+    name: Publish Release
+    needs: build
+    runs-on: ubuntu-24.04
     steps:
-      - name: Download APK artifacts
-        uses: actions/download-artifact@v5.0.0
+      - name: Download all APKs
+        uses: actions/download-artifact@v4.1.8
         with:
-          path: ~/apk-artifacts
+          path: ./apks
 
-      - name: Set up JDK
-        uses: actions/setup-java@v5.0.0
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
-          java-version: 17
-          distribution: temurin
-
-      - name: Checkout ${{ github.ref_name }} branch
-        uses: actions/checkout@v5.0.0
-        with:
-          ref: ${{ github.ref_name }}
-          path: ${{ github.ref_name }}
-
-      - name: Create repo artifacts
-        run: |
-          cd ${{ github.ref_name }}
-          python ./.github/scripts/move-built-apks.py
-          INSPECTOR_LINK="$(curl -s "https://api.github.com/repos/komikku-app/aniyomi-extensions-inspector/releases/latest" | jq -r '.assets[0].browser_download_url')"
-          curl -L "$INSPECTOR_LINK" -o ./Inspector.jar
-          java -jar ./Inspector.jar "repo/apk" "output.json" "tmp"
-          python ./.github/scripts/create-repo.py
-
-      - name: Checkout repo branch
-        uses: actions/checkout@v5.0.0
-        with:
-          ref: repo
-          path: repo
-
-      - name: Merge repo
-        run: |
-          cd repo
-          python ../${{ github.ref_name }}/.github/scripts/merge-repo.py '${{ needs.prepare.outputs.delete }}' '${{ github.ref_name }}/repo'
-
-      - name: Deploy repo
-        uses: EndBug/add-and-commit@v9.1.4
-        with:
-          message: "${{ needs.prepare.outputs.latestCommitMessage }}"
-          cwd: "./repo"
-
-      - name: Sync repo
-        run: |
-          cd repo
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git fetch origin
-          git reset origin/repo
-          git add -A
-          git commit --amend -m "${{ needs.prepare.outputs.latestCommitMessage }}" --no-sign --allow-empty || echo "No changes to commit"
-          git push origin HEAD:repo --force
-
-      - name: Purge cached index on jsDelivr
-        run: |
-          curl https://purge.jsdelivr.net/gh/${{ github.repository }}@repo/index.min.json
+          tag_name: v${{ github.run_number }}
+          name: "Release ${{ github.run_number }}"
+          files: ./apks/**/*.apk
