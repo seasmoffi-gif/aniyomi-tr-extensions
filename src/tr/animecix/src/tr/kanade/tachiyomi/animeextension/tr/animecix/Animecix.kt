@@ -78,8 +78,8 @@ class Animecix : AnimeHttpSource() {
 
         val body = subData.body?.string()
         val apiResponse = jsonParser.decodeFromString<StreamsData>(body)
-        
-        
+
+
         return apiResponse.items.map { item ->
             SEpisode.create().apply {
                 episode_number = item.episode
@@ -128,5 +128,5 @@ data class StreamsData(
 data class EpisodeData(
     val episode: Int?,
     val fansub: String?,
-    val url: String?
+    val url: String?, 
 )
