@@ -123,11 +123,7 @@ class Animecix : AnimeHttpSource() {
         }?.reversed() ?: emptyList()
     }
 
-    private fun getVideosFromUrl(firstUrl: String): List<Video> {
-        val url = client.newCall(GET(firstUrl, headers)).execute()
-            .use { it.headers["location"] }
-            ?: return emptyList()
-
+    private fun getVideosFromUrl(url: String): List<Video> {
         return when {
             "filemoon.sx" in url -> filemoonExtractor.videosFromUrl(url, headers = headers)
             "sendvid.com" in url -> sendvidExtractor.videosFromUrl(url)
