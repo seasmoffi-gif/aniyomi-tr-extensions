@@ -35,7 +35,7 @@ class Animecix : AnimeHttpSource() {
     private val jsonParser = Json { ignoreUnknownKeys = true }
     private val doodExtractor by lazy { DoodExtractor(client) }
     private val filemoonExtractor by lazy { FilemoonExtractor(client) }
-    private val gdrivePlayerExtractor by lazy { GdrivePlayerExtractor(client) }
+    private val googledriveExtractor by lazy { GoogledriveExtractor(client) }
     private val mp4uploadExtractor by lazy { Mp4uploadExtractor(client) }
     private val okruExtractor by lazy { OkruExtractor(client) }
     private val sendvidExtractor by lazy { SendvidExtractor(client, headers) }
@@ -141,10 +141,7 @@ class Animecix : AnimeHttpSource() {
             "yourupload" in url -> yourUploadExtractor.videoFromUrl(url, headers)
             "streamtape" in url -> streamtapeExtractor.videoFromUrl(url)?.let(::listOf)
             "dood" in url -> doodExtractor.videoFromUrl(url)?.let(::listOf)
-            "drive.google" in url -> {
-                val newUrl = "https://gdriveplayer.to/embed2.php?link=$url"
-                gdrivePlayerExtractor.videosFromUrl(newUrl, "GdrivePlayer", headers)
-            }
+            "drive.google" in url -> googledriveExtractor.videosFromUrl(url, headers)
             "uqload" in url -> uqloadExtractor.videosFromUrl(url)
             "voe.sx" in url -> voeExtractor.videosFromUrl(url)
             "tau-video.xyz" in url -> tauvideoExtractor.videosFromUrl(url)
