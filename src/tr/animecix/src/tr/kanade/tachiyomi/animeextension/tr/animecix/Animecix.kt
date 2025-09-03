@@ -80,7 +80,7 @@ class Animecix : AnimeHttpSource() {
     // --- SEARCH ---
     override fun searchAnimeRequest(page: Int, query: String, filters: AnimeFilterList): Request =
         GET(
-            "$baseUrl/api/collections/anime/records?filter=(title='$query')&page=$page&fields=title,type,synopsis,year,poster_url,id,genres",
+            "$baseUrl/api/collections/anime/records?filter=(title~'$query')&page=$page&fields=title,type,synopsis,year,poster_url,id,genres",
             headers,
         )
 
