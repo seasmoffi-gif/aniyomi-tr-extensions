@@ -8,7 +8,6 @@ import eu.kanade.tachiyomi.animesource.model.Video
 import eu.kanade.tachiyomi.animesource.online.AnimeHttpSource
 import eu.kanade.tachiyomi.lib.doodextractor.DoodExtractor
 import eu.kanade.tachiyomi.lib.filemoonextractor.FilemoonExtractor
-import eu.kanade.tachiyomi.lib.googledriveextractor.GoogledriveExtractor
 import eu.kanade.tachiyomi.lib.mp4uploadextractor.Mp4uploadExtractor
 import eu.kanade.tachiyomi.lib.okruextractor.OkruExtractor
 import eu.kanade.tachiyomi.lib.sendvidextractor.SendvidExtractor
@@ -35,7 +34,6 @@ class Animecix : AnimeHttpSource() {
     private val jsonParser = Json { ignoreUnknownKeys = true }
     private val doodExtractor by lazy { DoodExtractor(client) }
     private val filemoonExtractor by lazy { FilemoonExtractor(client) }
-    private val googledriveExtractor by lazy { GoogledriveExtractor(client) }
     private val mp4uploadExtractor by lazy { Mp4uploadExtractor(client) }
     private val okruExtractor by lazy { OkruExtractor(client) }
     private val sendvidExtractor by lazy { SendvidExtractor(client, headers) }
@@ -141,7 +139,6 @@ class Animecix : AnimeHttpSource() {
             "yourupload" in url -> yourUploadExtractor.videoFromUrl(url, headers)
             "streamtape" in url -> streamtapeExtractor.videoFromUrl(url)?.let(::listOf)
             "dood" in url -> doodExtractor.videoFromUrl(url)?.let(::listOf)
-            "drive.google" in url -> googledriveExtractor.videosFromUrl(url, headers)
             "uqload" in url -> uqloadExtractor.videosFromUrl(url)
             "voe.sx" in url -> voeExtractor.videosFromUrl(url)
             "tau-video.xyz" in url -> tauvideoExtractor.videosFromUrl(url)
