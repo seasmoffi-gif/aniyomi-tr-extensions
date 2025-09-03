@@ -115,21 +115,10 @@ class Animecix : AnimeHttpSource() {
         val streamsResponse = jsonParser.decodeFromString<StreamsData>(subBody)
 
         return streamsResponse.items?.map { item ->
-            fun encodeFilter(filter: String): String {
-                return filter
-                    .replace("(", "%28")
-                    .replace(")", "%29")
-                    .replace("'", "%27")
-                    .replace("&&", "%26%26")
-                    .replace(" ", "%20")
-            }
-            val filter = "(anime_id='${doc.id}' && episode=${item.episode})"
-            val encodedFilter = encodeFilter(filter)
-            val urldi = "$baseUrl/api/collections/videos/records?filter=$encodedFilter"
             SEpisode.create().apply {
                 episode_number = (item.episode ?: 0).toFloat()
                 name = "Episode ${item.episode ?: "?"}"
-                setUrlWithoutDomain(urldi)
+                setUrlWithoutDomain("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc.id}')(episode=${item.episode})")
             }
         }?.reversed() ?: emptyList()
     }
