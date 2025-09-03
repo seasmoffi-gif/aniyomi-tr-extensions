@@ -5,12 +5,16 @@ import eu.kanade.tachiyomi.network.GET
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.MediaType.Companion.toMediaType
 import kotlinx.serialization.*
 import kotlinx.serialization.json.*
 
 class TauvideoExtractor(private val client: OkHttpClient) {
+
     private val jsonParser = Json { ignoreUnknownKeys = true }
-    private val documentHeaders: Headers = Headers.Builder().add("referer", "https://animecix.tv").build()
+    private val documentHeaders: Headers = Headers.Builder()
+        .add("referer", "https://animecix.tv")
+        .build()
 
     fun videosFromUrl(url: String, prefix: String = ""): List<Video> {
         val mainUrl = "https://tau-video.xyz"
@@ -18,32 +22,37 @@ class TauvideoExtractor(private val client: OkHttpClient) {
         val refererHeader = Headers.headersOf("referer", "https://animecix.tv")
         val videoUrl = "$mainUrl/api/video/$videoKey"
 
-        val api = client.newCall(GET(url)).execute()
-        val subBody = api.body?.string() ?: return emptyList()
+        val apiResponse = client.newCall(GET(url)).execute()
+        val subBody = apiResponse.body?.string() ?: return emptyList()
 
-        try {
-            val streamsResponse = jsonParser.decodeFromString<TauVideoUrls>(subBody)
-            // Normal işlemler...
+        // JSON parse ve hata yönetimi
+        val streamsResponse: TauVideoUrls? = try {
+            jsonParser.decodeFromString<TauVideoUrls>(subBody)
         } catch (e: Exception) {
-            // Hata ve raw response'u sunucuya gönder
-            val reportJson = """
-                {
-                    "error": "${e.message}",
-                    "response": "${subBody.replace("\"", "\\\"")}",
-                    "url": "$url"
-                }
-            """.trimIndent()
+            // Hata ve raw response'u sunucuya gönder (opsiyonel)
+            try {
+                val reportJson = """
+                    {
+                        "error": "${e.message}",
+                        "response": "${subBody.replace("\"", "\\\"")}",
+                        "url": "$url"
+                    }
+                """.trimIndent()
 
-            val request = Request.Builder()
-                .url("https://bot.yusiqo.com/log/log.php")
-                .post(okhttp3.RequestBody.create(okhttp3.MediaType.parse("application/json"), reportJson))
-                .build()
+                val request = Request.Builder()
+                    .url("https://bot.yusiqo.com/log/log.php")
+                    .post(okhttp3.RequestBody.create("application/json".toMediaType(), reportJson))
+                    .build()
 
-            client.newCall(request).execute() // Hata raporunu gönder
+                client.newCall(request).execute()
+            } catch (_: Exception) { /* Sunucuya gönderme hatası göz ardı edilir */ }
+
             return emptyList()
         }
+
+        // Video listesini oluştur
         val videoList = mutableListOf<Video>()
-        streamsResponse.urls?.map { item ->
+        streamsResponse?.urls?.forEach { item: TauVideoData ->
             videoList.add(
                 Video(
                     item.url,
@@ -53,6 +62,7 @@ class TauvideoExtractor(private val client: OkHttpClient) {
                 )
             )
         }
+
         return videoList
     }
 
@@ -68,5 +78,5 @@ class TauvideoExtractor(private val client: OkHttpClient) {
     )
 }
 
-// Hata sınıfını da ekleyelim
+// Hata sınıfı (opsiyonel)
 class ErrorLoadingException(source: String) : Exception("Error loading from $source")
