@@ -162,7 +162,7 @@ class Animecix : AnimeHttpSource() {
                     it.audioTracks,
                 )
             }
-    } ?: emptyList()
+        } ?: emptyList()
     }
 }
 
