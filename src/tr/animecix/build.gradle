@@ -21,4 +21,9 @@ dependencies {
     implementation(project(":lib:synchrony"))
     implementation(project(":lib:vk-extractor"))
     implementation(project(":lib:voe-extractor"))
+
+    // ✅ eksik olanlar eklendi
+    implementation(project(":lib:streamtape-extractor"))
+    implementation(project(":lib:tauvideo-extractor"))
+    implementation(project(":lib:yourupload-extractor"))
 }
