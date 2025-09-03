@@ -108,7 +108,7 @@ class Animecix : AnimeHttpSource() {
         val doc = apiResponse.items.firstOrNull() ?: return emptyList()
 
         val subData = client.newCall(
-            GET("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc.id}')"),
+            GET("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc.id}')&perPage=10000"),
         ).execute()
 
         val subBody = subData.body?.string() ?: return emptyList()
@@ -118,7 +118,7 @@ class Animecix : AnimeHttpSource() {
             SEpisode.create().apply {
                 episode_number = (item.episode ?: 0).toFloat()
                 name = "Episode ${item.episode ?: "?"}"
-                setUrlWithoutDomain("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc.id}')(episode=${item.episode})")
+                setUrlWithoutDomain("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc.id}')(episode=${item.episode})&perPage=10000")
             }
         }?.reversed() ?: emptyList()
     }
