@@ -7,7 +7,7 @@ import okhttp3.Request
 import kotlinx.serialization.*
 import kotlinx.serialization.json.*
 
-class TauvideoExtractor(private val client: OkHttpClient, private val headers: Headers) {
+class TauvideoExtractor(private val client: OkHttpClient) {
 
     fun videosFromUrl(url: String, prefix: String = ""): List<Video> {
         val mainUrl = "https://tau-video.xyz"
