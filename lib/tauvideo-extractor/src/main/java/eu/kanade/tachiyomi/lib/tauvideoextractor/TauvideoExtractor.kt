@@ -17,19 +17,16 @@ class TauvideoExtractor(private val client: OkHttpClient) {
         val refererHeader = Headers.headersOf("referer", "https://animecix.tv")
         val videoUrl = "$mainUrl/api/video/$videoKey"
 
-        val api = client.newCall(GET(url, documentHeaders)).execute().use { response ->
-            if (!response.isSuccessful) throw ErrorLoadingException("TauVideo")
-            val body = response.body?.string() ?: throw ErrorLoadingException("TauVideo")
-            Json.decodeFromString<TauVideoUrls>(body)
-        }
-
+        val api = client.newCall(GET(url)).execute()
+        val subBody = api.body?.string() ?: return emptyList()
+        val streamsResponse = jsonParser.decodeFromString<TauVideoUrls>(subBody)
         val videoList = mutableListOf<Video>()
-        for (video in api.urls) {
+        streamsResponse.urls?.map { item ->
             videoList.add(
                 Video(
-                    video.url,
-                    "TauVideo ${video.label}",
-                    video.url,
+                    item.url,
+                    "TauVideo ${item.label}",
+                    item.url,
                     headers = refererHeader
                 )
             )
