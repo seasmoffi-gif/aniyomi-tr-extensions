@@ -144,7 +144,7 @@ class Animecix : AnimeHttpSource() {
     override fun videoListParse(response: Response): List<Video> {
         val subBody = response.body?.string() ?: return emptyList()
         val streamsResponse = jsonParser.decodeFromString<StreamsData>(subBody)
-    
+
         return streamsResponse.items?.flatMap { item ->
             val videos = when {
                 "filemoon.sx" in item.url -> filemoonExtractor.videosFromUrl(item.url, headers = headers)
@@ -160,7 +160,7 @@ class Animecix : AnimeHttpSource() {
                 "tau-video.xyz" in item.url -> tauvideoExtractor.videosFromUrl(item.url)
                 else -> null
             } ?: emptyList()
-    
+
             videos.map {
                 Video(
                     it.url,
