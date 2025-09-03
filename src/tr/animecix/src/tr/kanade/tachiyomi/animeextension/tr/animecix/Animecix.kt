@@ -144,9 +144,24 @@ class Animecix : AnimeHttpSource() {
     override fun videoListParse(response: Response): List<Video> {
         val subBody = response.body?.string() ?: return emptyList()
         val streamsResponse = jsonParser.decodeFromString<StreamsData>(subBody)
-
+    
         return streamsResponse.items?.flatMap { item ->
-            getVideosFromUrl(item.url).map {
+            val videos = when {
+                "filemoon.sx" in item.url -> filemoonExtractor.videosFromUrl(item.url, headers = headers)
+                "sendvid.com" in item.url -> sendvidExtractor.videosFromUrl(item.url)
+                "video.sibnet" in item.url -> sibnetExtractor.videosFromUrl(item.url)
+                "mp4upload" in item.url -> mp4uploadExtractor.videosFromUrl(item.url, headers)
+                "ok.ru" in item.url || "odnoklassniki.ru" in item.url -> okruExtractor.videosFromUrl(item.url)
+                "yourupload" in item.url -> yourUploadExtractor.videoFromUrl(item.url, headers)
+                "streamtape" in item.url -> streamtapeExtractor.videoFromUrl(item.url)?.let(::listOf)
+                "dood" in item.url -> doodExtractor.videoFromUrl(item.url)?.let(::listOf)
+                "uqload" in item.url -> uqloadExtractor.videosFromUrl(item.url)
+                "voe.sx" in item.url -> voeExtractor.videosFromUrl(item.url)
+                "tau-video.xyz" in item.url -> tauvideoExtractor.videosFromUrl(item.url)
+                else -> null
+            } ?: emptyList()
+    
+            videos.map {
                 Video(
                     it.url,
                     "[${item.fansub ?: "Fansub"}] ${it.quality}",
