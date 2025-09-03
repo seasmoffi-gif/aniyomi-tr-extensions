@@ -195,5 +195,5 @@ data class StreamsData(
 data class EpisodeData(
     val episode: Int?,
     val fansub: String?,
-    val url: String?,
+    val url: String,
 )
