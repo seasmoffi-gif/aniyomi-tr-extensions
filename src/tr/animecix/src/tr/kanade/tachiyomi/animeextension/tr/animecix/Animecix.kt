@@ -152,7 +152,7 @@ class Animecix : AnimeHttpSource() {
         val streamsResponse = jsonParser.decodeFromString<StreamsData>(subBody)
 
         return streamsResponse.items?.flatMap { item ->
-            getVideosFromUrl(url).map {
+            getVideosFromUrl(item.url).map {
                 Video(
                     it.url,
                     "[${item.fansub ?: "Fansub"}] ${it.quality}",
