@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.lib.tauvideoextractor
 
 import eu.kanade.tachiyomi.animesource.model.Video
+import eu.kanade.tachiyomi.network.GET
 import okhttp3.Headers
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -9,19 +10,19 @@ import kotlinx.serialization.json.*
 
 class TauvideoExtractor(private val client: OkHttpClient) {
 
+    private val documentHeaders by lazy {
+        headers.newBuilder()
+            .add("referer", "https://animecix.tv")
+            .build()
+    }
+
     fun videosFromUrl(url: String, prefix: String = ""): List<Video> {
         val mainUrl = "https://tau-video.xyz"
         val videoKey = url.split("/").last()
         val refererHeader = Headers.headersOf("referer", "https://animecix.tv")
         val videoUrl = "$mainUrl/api/video/$videoKey"
 
-        // HTTP isteği
-        val request = Request.Builder()
-            .url(videoUrl)
-            .get()
-            .build()
-
-        val api = client.newCall(request).execute().use { response ->
+        val api = client.newCall(GET(url, documentHeaders)).execute().use { response ->
             if (!response.isSuccessful) throw ErrorLoadingException("TauVideo")
             val body = response.body?.string() ?: throw ErrorLoadingException("TauVideo")
             Json.decodeFromString<TauVideoUrls>(body)
