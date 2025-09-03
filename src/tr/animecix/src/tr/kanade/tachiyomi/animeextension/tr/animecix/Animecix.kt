@@ -114,13 +114,19 @@ class Animecix : AnimeHttpSource() {
         val subBody = subData.body?.string() ?: return emptyList()
         val streamsResponse = jsonParser.decodeFromString<StreamsData>(subBody)
 
-        return streamsResponse.items?.map { item ->
-            SEpisode.create().apply {
-                episode_number = (item.episode ?: 0).toFloat()
-                name = "Episode ${item.episode ?: "?"}"
-                setUrlWithoutDomain("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc.id}')(episode=${item.episode})&perPage=10000")
+        return streamsResponse.items
+            ?.distinctBy { it.episode } // Aynı episode numarasını yalnızca bir kez al
+            ?.map { item ->
+                SEpisode.create().apply {
+                    episode_number = (item.episode ?: 0).toFloat()
+                    name = "Episode ${item.episode ?: "?"}"
+                    setUrlWithoutDomain(
+                        "$baseUrl/api/collections/videos/records?filter=(anime_id='${doc.id}')(episode=${item.episode})&perPage=10000"
+                    )
+                }
             }
-        }?.reversed() ?: emptyList()
+            ?.reversed()
+            ?: emptyList()
     }
 
     private fun getVideosFromUrl(url: String): List<Video> {
