@@ -19,7 +19,6 @@ import eu.kanade.tachiyomi.lib.voeextractor.VoeExtractor
 import eu.kanade.tachiyomi.lib.youruploadextractor.YourUploadExtractor
 import eu.kanade.tachiyomi.network.GET
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import okhttp3.Request
 import okhttp3.Response
@@ -53,7 +52,7 @@ class Animecix : AnimeHttpSource() {
 
     override fun popularAnimeParse(response: Response): AnimesPage {
         val body = response.body?.string() ?: return AnimesPage(emptyList(), false)
-        val apiResponse = jsonParser.decodeFromString<ApiResponse>(body)
+        val apiResponse = jsonParser.decodeFromString(ApiResponse.serializer(), body)
 
         val animes = apiResponse.items.map { item ->
             SAnime.create().apply {
@@ -89,14 +88,14 @@ class Animecix : AnimeHttpSource() {
     // --- ANIME DETAILS ---
     override fun animeDetailsParse(response: Response): SAnime {
         val body = response.body?.string() ?: return SAnime.create()
-        val apiResponse = jsonParser.decodeFromString<ApiResponse>(body)
+        val apiResponse = jsonParser.decodeFromString(ApiResponse.serializer(), body)
         val doc = apiResponse.items.firstOrNull()
 
         return SAnime.create().apply {
-            title = doc?.title ?: ""
-            description = doc?.synopsis ?: ""
-            genre = doc?.genres ?: ""
-            thumbnail_url = doc?.poster_url ?: ""
+            title = doc?.title.orEmpty()
+            description = doc?.synopsis.orEmpty()
+            genre = doc?.genres.orEmpty()
+            thumbnail_url = doc?.poster_url.orEmpty()
             status = SAnime.UNKNOWN
         }
     }
@@ -104,7 +103,7 @@ class Animecix : AnimeHttpSource() {
     // --- EPISODES ---
     override fun episodeListParse(response: Response): List<SEpisode> {
         val body = response.body?.string() ?: return emptyList()
-        val apiResponse = jsonParser.decodeFromString<ApiResponse>(body)
+        val apiResponse = jsonParser.decodeFromString(ApiResponse.serializer(), body)
         val doc = apiResponse.items.firstOrNull() ?: return emptyList()
 
         val subData = client.newCall(
@@ -112,7 +111,7 @@ class Animecix : AnimeHttpSource() {
         ).execute()
 
         val subBody = subData.body?.string() ?: return emptyList()
-        val streamsResponse = jsonParser.decodeFromString<StreamsData>(subBody)
+        val streamsResponse = jsonParser.decodeFromString(StreamsData.serializer(), subBody)
 
         return streamsResponse.items?.map { item ->
             SEpisode.create().apply {
@@ -148,24 +147,25 @@ class Animecix : AnimeHttpSource() {
 
     // --- VIDEOS ---
     override fun videoListParse(response: Response): List<Video> {
-        val subBody = response.body?.string() ?: return emptyList()
-        val streamsResponse = jsonParser.decodeFromString<StreamsData>(subBody)
+    val subBody = response.body?.string() ?: return emptyList()
+    val streamsResponse = jsonParser.decodeFromString(StreamsData.serializer(), subBody)
 
-        return streamsResponse.items?.flatMap { item ->
-            item.url?.let { url ->
-                getVideosFromUrl(url).map {
-                    Video(
-                        it.url,
-                        "[${item.fansub ?: "Fansub"}] ${it.quality}",
-                        it.videoUrl,
-                        it.headers,
-                        it.subtitleTracks,
-                        it.audioTracks,
-                    )
-                }
-            } ?: emptyList()
-        } ?: emptyList()
-    }
+    return streamsResponse.items?.flatMap { item ->
+        if (item.url != null) {
+            getVideosFromUrl(item.url).map {
+                Video(
+                    it.url,
+                    "[${item.fansub ?: "Fansub"}] ${it.quality}",
+                    it.videoUrl,
+                    it.headers,
+                    it.subtitleTracks,
+                    it.audioTracks,
+                )
+            }
+        } else {
+            emptyList()
+        }
+    } ?: emptyList()
 }
 
 // --- JSON DATA CLASSES ---
