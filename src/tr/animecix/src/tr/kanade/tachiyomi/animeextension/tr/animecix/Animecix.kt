@@ -118,7 +118,9 @@ class Animecix : AnimeHttpSource() {
             SEpisode.create().apply {
                 episode_number = (item.episode ?: 0).toFloat()
                 name = "Episode ${item.episode ?: "?"}"
-                url = "https://base.vulnton.org/api/collections/videos/records?filter=%28anime_id%3D%27${doc.id}%27%20%26%26%20episode%3D${item.episode}%29"
+                setUrlWithoutDomain(
+                    "$baseUrl/api/collections/videos/records?filter=%28anime_id%3D%27${doc.id}%27%20%26%26%20episode%3D${item.episode}%29"
+                )
             }
         }?.reversed() ?: emptyList()
     }
