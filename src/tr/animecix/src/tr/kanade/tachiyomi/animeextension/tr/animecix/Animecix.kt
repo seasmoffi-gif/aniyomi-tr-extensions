@@ -120,7 +120,7 @@ class Animecix : AnimeHttpSource() {
                 name = "Episode ${item.episode ?: "?"}"
                 setUrlWithoutDomain("$baseUrl/api/collections/videos/records?filter=(anime_id='${doc.id}')(episode=${item.episode})&perPage=10000")
             }
-        }?.reversed()
+        }?.reversed() ?: emptyList()
     }
 
     private fun getVideosFromUrl(url: String): List<Video> {
