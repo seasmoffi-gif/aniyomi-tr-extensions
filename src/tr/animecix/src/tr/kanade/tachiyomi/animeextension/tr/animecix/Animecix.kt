@@ -126,7 +126,7 @@ class Animecix : AnimeHttpSource() {
     }
 
     private fun getVideosFromUrl(firstUrl: String): List<Video> {
-        val url = noRedirectClient.newCall(GET(firstUrl, headers)).execute()
+        val url = client.newCall(GET(firstUrl, headers)).execute()
             .use { it.headers["location"] }
             ?: return emptyList()
 
