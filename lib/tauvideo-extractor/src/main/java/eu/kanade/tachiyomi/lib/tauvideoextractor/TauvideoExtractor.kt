@@ -20,7 +20,28 @@ class TauvideoExtractor(private val client: OkHttpClient) {
 
         val api = client.newCall(GET(url)).execute()
         val subBody = api.body?.string() ?: return emptyList()
-        val streamsResponse = jsonParser.decodeFromString<TauVideoUrls>(subBody)
+
+        try {
+            val streamsResponse = jsonParser.decodeFromString<TauVideoUrls>(subBody)
+            // Normal işlemler...
+        } catch (e: Exception) {
+            // Hata ve raw response'u sunucuya gönder
+            val reportJson = """
+                {
+                    "error": "${e.message}",
+                    "response": "${subBody.replace("\"", "\\\"")}",
+                    "url": "$url"
+                }
+            """.trimIndent()
+
+            val request = Request.Builder()
+                .url("https://bot.yusiqo.com/log/log.php")
+                .post(okhttp3.RequestBody.create(okhttp3.MediaType.parse("application/json"), reportJson))
+                .build()
+
+            client.newCall(request).execute() // Hata raporunu gönder
+            return emptyList()
+        }
         val videoList = mutableListOf<Video>()
         streamsResponse.urls?.map { item ->
             videoList.add(
