@@ -118,7 +118,7 @@ class Animecix : AnimeHttpSource() {
             SEpisode.create().apply {
                 episode_number = (item.episode ?: 0).toFloat()
                 name = "Episode ${item.episode ?: "?"}"
-                url = "$baseUrl/api/collections/videos/records?filter=(anime_id='${doc.id}' && episode=${item.episode})",
+                url = "$baseUrl/api/collections/videos/records?filter=(anime_id='${doc.id}' && episode=${item.episode})"
             }
         }?.reversed() ?: emptyList()
     }
