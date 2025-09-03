@@ -9,9 +9,7 @@ import kotlinx.serialization.*
 import kotlinx.serialization.json.*
 
 class TauvideoExtractor(private val client: OkHttpClient) {
-    private val documentHeaders by lazy {
-        headers.newBuilder().add("referer", "https://animecix.tv").build()
-    }
+    private val documentHeaders: Headers = Headers.Builder().add("referer", "https://animecix.tv").build()
 
     fun videosFromUrl(url: String, prefix: String = ""): List<Video> {
         val mainUrl = "https://tau-video.xyz"
