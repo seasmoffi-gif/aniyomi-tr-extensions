@@ -22,7 +22,7 @@ class TauvideoExtractor(private val client: OkHttpClient) {
         val refererHeader = Headers.headersOf("referer", "https://animecix.tv")
         val videoUrl = "$mainUrl/api/video/$videoKey"
 
-        val apiResponse = client.newCall(GET(url)).execute()
+        val apiResponse = client.newCall(GET(videoUrl)).execute()
         val subBody = apiResponse.body?.string() ?: return emptyList()
 
         // JSON parse ve hata yönetimi
